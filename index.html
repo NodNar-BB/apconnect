@@ -187,6 +187,16 @@
         width: 90%;
       }
     }
+    
+    @media (min-width: 768px) {
+      #grid {
+        max-width: 500px; /* ✅ Controls the total grid size */
+      }
+
+      .word {
+        font-size: clamp(0.8rem, 1.2vw, 1rem); /* ✅ Smaller, stable text on desktop */
+      }
+    }
   </style>
 </head>
 <body>
@@ -342,6 +352,7 @@
   </script>
 </body>
 </html>
+
 
 
 
