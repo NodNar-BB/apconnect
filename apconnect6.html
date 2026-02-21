@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Anatomy Connections</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+            margin: 0;
+            padding: 1rem;
+            text-align: center;
+            transition: .3s;
+            color: #333;
+        }
+        body.dark { background: #121212; color: #eee; }
+
+        .view { display: none; }
+        .view.active { display: block; }
+
+        button {
+            padding: .6rem 1.2rem;
+            margin: .3rem;
+            border: none;
+            border-radius: 8px;
+            background: #1890ff;
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        button:hover { background: #40a9ff; }
+        body.dark button { background: #333; color: #fff; border: 1px solid #444; }
+
+        .system-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            max-width: 800px;
+            margin: 2rem auto;
+        }
+        .system-btn { padding: 1.5rem; font-size: 1.1rem; }
+
+        #grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr); /* Always 4 columns */
+            gap: 8px;
+            max-width: 500px;
+            margin: 20px auto;
+            padding: 0 5px;
+        }
+
+        .grid-4x4 { grid-template-columns: repeat(4, 1fr); }
+        .grid-4x3 { grid-template-columns: repeat(4, 1fr); }
+
+        .word {
+            background: white;
+            border: 2px solid #ccc;
+            border-radius: 8px;
+            min-height: 70px; /* Better than aspect-ratio for mobile text */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            padding: 4px;
+            font-size: clamp(0.7rem, 2.5vw, 0.9rem); /* Fluid font size */
+            font-weight: bold;
+            word-break: break-word; /* Prevents long words from escaping */
+            hyphens: auto;
+            text-align: center;
+            line-height: 1.1;
+            transition: transform 0.1s;   
+        }
+
+        body.dark .word { background: #222222; color: #eee; border-color: #444; }
+        .word.selected { background: #ffd591 !important; border-color: #fa8c16 !important; color: #000 !important; transform: scale(1.05); box-shadow: 0 0 10px rgba(250, 140, 22, 0.5);}
+
+        #mistakes-area {
+            margin: 15px 0;
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+        .dot {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            background: #555;
+            border-radius: 50%;
+            margin: 0 4px;
+        }
+        .dot.lost { background: #ddd; }
+
+        .solved-card {
+            border: 2px solid #8191d3;
+            border-radius: 10px;
+            margin: 1rem auto;
+            padding: 15px;
+            max-width: 450px;
+            background: #fff;
+        }
+        body.dark .solved-card { background: #1e1e1e; border-color: #333; }
+        .solved-words { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin: 10px 0; }
+        .solved-words div { background: #d6e4ff; padding: 6px 10px; border-radius: 6px; color: #003a8c; font-weight: bold; }
+        
+        .def-area { margin-top: 15px; border-top: 1px solid #eee; padding-top: 10px; }
+        .def-row { display: flex; gap: 6px; align-items: center; margin: 8px 0; text-align: left; }
+        .def-row input { flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+        
+        .correct { background: #b8f5b8 !important; }
+        .incorrect { background: #f5b8b8 !important; }
+        .nav { margin-bottom: 1rem; }
+        #harder-area { background: #fffbe6; padding: 15px; border: 1px solid #ffe58f; border-radius: 8px; margin: 10px auto; max-width: 400px; }
+    </style>
+</head>
+<body>
+
+<div id="home-view" class="view active">
+    <h1>Anatomy Connections</h1>
+    <button id="dark-toggle">🌙 Toggle Dark</button>
+    <div class="system-grid" id="system-buttons"></div>
+</div>
+
+<div id="game-view" class="view">
+    <div class="nav">
+        <button id="home-btn">⬅ Home</button>
+        <button id="dark-toggle2">🌙 Toggle Dark</button>
+        <button id="harder-toggle">Mode: Normal</button>
+    </div>
+    <h1 id="game-title"></h1>
+    <div id="grid"></div>
+    <button id="submit">Submit Group</button>
+    
+    <div id="harder-area" style="display:none">
+        <p>Identify the category for these words:</p>
+        <input id="harder-input" placeholder="Type category name..."/>
+        <button id="harder-check">Check</button>
+    </div>
+
+    <h2>Solved Groups</h2>
+    <div id="solved-container"></div>
+</div>
+
+<script>
+/* ================= DATA ================= */
+const systems = {
+    "General Terminology": [
+        {
+            title: "Set 1",
+            groups: [
+                {
+                    name: "Directional Terms", 
+                    answers: ["directional terms", "direction", "directions"], 
+                    words: ["Superior", "Inferior", "Anterior", "Posterior"],
+                    definitions: { Superior: ["above"], Inferior: ["below"], Anterior: ["front"], Posterior: ["behind"] }
+                },
+                {
+                    name: "Planes", 
+                    answers: ["planes", "body planes"], 
+                    words: ["Sagittal", "Frontal", "Transverse", "Oblique"],
+                    definitions: { Sagittal: ["divides left and right"], Frontal: ["divides front and back"], Transverse: ["horizontal"], Oblique: ["diagonal"] }
+                },
+                {
+                    name: "Movements", 
+                    answers: ["movements", "joint movements"], 
+                    words: ["Flexion", "Extension", "Abduction", "Adduction"],
+                    definitions: { Flexion: ["decreasing angle"], Extension: ["increasing angle"], Abduction: ["away from midline"], Adduction: ["towards midline"] }
+                },
+                {
+                    name: "Body Positions", 
+                    answers: ["positions", "body positions", "posture"], 
+                    words: ["Supine", "Prone", "Anatomical", "Fowlers"],
+                    definitions: { Supine: ["face up"], Prone: ["face down"], Anatomical: ["standing forward"], Fowlers: ["sitting upright"] }
+                }
+            ]
+        }
+    ],
+        "Cardiovascular System": [
+        {
+            title: "Set 1",
+            groups: [
+                {
+                    name: "Arteries", 
+                    answers: ["arteries", "artery"], 
+                    words: ["Brachial", "Coeliac", "Carotid", "Hepatic"],
+                    definitions: { Brachial: ["arm"], Coeliac: ["stomach"], Carotid: ["neck"], Hepatic: ["liver"] }
+                },
+                {
+                    name: "Heart-Internal", 
+                    answers: ["inside the heart", "heart inside"], 
+                    words: ["Atria", "AV valve", "Ventricle", "Papillary Muscles"],
+                    definitions: { Atria: ["top of heart"], "AV valve": ["valve between atria and ventricles", "between atria and ventricles", "prevent backflow"], Ventricle: ["bottom of heart"], "Papillary Muscles": ["attached to valves"] }
+                },
+                {
+                    name: "Components of Elastic Arteries", 
+                    answers: ["components of elastic arteries", "elastic arteries", "arteries", "artery features"], 
+                    words: ["Internal Elastic Membrane", "Thick Tunica Media", "External Elastic Membrane", "Round Lumen"],
+                    definitions: { "Internal Elastic Membrane": [""], "Thick Tunica Media": [""], "External Elastic Membrane": [""], "Round Lumen": [""] }
+                },
+                {
+                    name: "Components of Veins", 
+                    answers: ["components of veins", "veins", "vein features", "features of veins"], 
+                    words: ["Valves", "Thin Tunica Media", "Irregular Lumen", "Appear Flattened"],
+                    definitions: { Valves: [""], "Thin Tunica Media": [""], "Irregular Lumen": [""], "Appear Flattened": [""] }
+                }
+            ]
+        }
+    ]
+};
+
+/* ================= STATE & DOM ================= */
+let mistakes = 4;
+let correctGroups = [], remainingWords = [], selected = [], solved = [];
+let harder = false, pendingMatch = null;
+
+const gridEl = document.getElementById("grid");
+const solvedContainer = document.getElementById("solved-container");
+const harderArea = document.getElementById("harder-area");
+const harderInput = document.getElementById("harder-input");
+const gameTitle = document.getElementById("game-title");
+const harderToggle = document.getElementById("harder-toggle");
+
+/* ================= DARK MODE ================= */
+function toggleDark() {
+    const isDark = document.body.classList.toggle("dark");
+    localStorage.dark = isDark ? "1" : "0";
+}
+document.getElementById("dark-toggle").onclick = toggleDark;
+document.getElementById("dark-toggle2").onclick = toggleDark;
+if (localStorage.dark === "1") document.body.classList.add("dark");
+
+/* ================= NAVIGATION ================= */
+function showView(id) {
+    document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+    document.getElementById(id).classList.add("active");
+}
+document.getElementById("home-btn").onclick = () => showView("home-view");
+
+/* ================= HOME SETUP ================= */
+const sysButtons = document.getElementById("system-buttons");
+Object.keys(systems).forEach(sys => {
+    const b = document.createElement("button");
+    b.className = "system-btn";
+    b.textContent = sys;
+    b.onclick = () => start(sys);
+    sysButtons.appendChild(b);
+});
+
+/* ================= GAME LOGIC ================= */
+function start(systemKey) {
+    const puzzles = systems[systemKey];
+    const puzzle = puzzles[Math.floor(Math.random() * puzzles.length)];
+    
+    correctGroups = puzzle.groups;
+    remainingWords = correctGroups.flatMap(g => g.words).sort(() => 0.5 - Math.random());
+    solved = [];
+    selected = [];
+    
+    solvedContainer.innerHTML = "";
+    gameTitle.textContent = systemKey + " — " + puzzle.title;
+    harderArea.style.display = "none";
+    
+    showView("game-view");
+    render();
+}
+
+function render() {
+    gridEl.innerHTML = "";
+    gridEl.className = remainingWords.length > 12 ? "grid-4x4" : "grid-4x3";
+    
+    remainingWords.forEach(w => {
+        const d = document.createElement("div");
+        d.className = "word" + (selected.includes(w) ? " selected" : "");
+        d.textContent = w;
+        d.onclick = () => {
+            if (selected.includes(w)) {
+                selected = selected.filter(x => x !== w);
+            } else if (selected.length < 4) {
+                selected.push(w);
+            }
+            render();
+        };
+        gridEl.appendChild(d);
+    });
+}
+
+document.getElementById("submit").onclick = () => {
+    if (selected.length !== 4) return;
+
+    const match = correctGroups.find(g => g.words.every(w => selected.includes(w)));
+    
+    if (!match) {
+            mistakes--;
+            updateMistakesUI();
+            alert("Incorrect Group!");
+            selected = [];
+            render();
+    
+            if (mistakes <= 0) {
+                alert("Game Over! Revealing answers...");
+                revealAll();
+            }
+        return;
+    }
+
+    if (harder) {
+        pendingMatch = match;
+        harderArea.style.display = "block";
+        gridEl.style.pointerEvents = "none"; // Lock grid during naming
+    } else {
+        solve(match);
+    }
+};
+
+function updateMistakesUI() {
+  const area = document.getElementById("mistakes-area");
+  area.innerHTML = "Mistakes remaining: ";
+  for(let i=0; i<4; i++) {
+    const dot = document.createElement("span");
+    dot.className = i < mistakes ? "dot" : "dot lost";
+    area.appendChild(dot);
+  }
+}
+
+function revealAll() {
+  const unsolved = correctGroups.filter(g => !solved.includes(g));
+  unsolved.forEach(g => solve(g));
+}
+
+harderToggle.onclick = () => {
+    harder = !harder;
+    harderToggle.textContent = harder ? "Mode: Harder (Type Groups)" : "Mode: Normal";
+};
+
+document.getElementById("harder-check").onclick = () => {
+    const val = harderInput.value.trim().toLowerCase();
+    if (pendingMatch.answers.some(a => val.includes(a) || a === val)) {
+        solve(pendingMatch);
+        harderArea.style.display = "none";
+        harderInput.value = "";
+        gridEl.style.pointerEvents = "auto";
+    } else {
+        alert("Correct words, but wrong category name! Try again.");
+    }
+};
+
+function solve(match) {
+    solved.push(match);
+    remainingWords = remainingWords.filter(w => !match.words.includes(w));
+    selected = [];
+    render();
+    addSolvedCard(match);
+    
+    if (remainingWords.length === 0) {
+        setTimeout(() => alert("Congratulations! System Mastered."), 500);
+    }
+}
+
+function addSolvedCard(group) {
+    const card = document.createElement("div");
+    card.className = "solved-card";
+
+    const title = document.createElement("h3");
+    title.style.margin = "0 0 10px 0";
+    title.textContent = group.name;
+
+    const wordsDiv = document.createElement("div");
+    wordsDiv.className = "solved-words";
+    group.words.forEach(w => {
+        const d = document.createElement("div");
+        d.textContent = w;
+        wordsDiv.appendChild(d);
+    });
+
+    const defineBtn = document.createElement("button");
+    defineBtn.textContent = "Test Definitions";
+    defineBtn.style.background = "#52c41a";
+
+    const defArea = document.createElement("div");
+    defArea.className = "def-area";
+    defArea.style.display = "none";
+
+    defineBtn.onclick = () => {
+        defArea.style.display = "block";
+        buildDefinitionUI(group, defArea);
+        defineBtn.remove();
+    };
+
+    card.append(title, wordsDiv, defineBtn, defArea);
+    solvedContainer.prepend(card);
+}
+
+function buildDefinitionUI(group, container) {
+    group.words.forEach(word => {
+        const row = document.createElement("div");
+        row.className = "def-row";
+
+        const label = document.createElement("span");
+        label.style.minWidth = "80px";
+        label.style.fontWeight = "bold";
+        label.textContent = word + ": ";
+
+        const input = document.createElement("input");
+        const checkBtn = document.createElement("button");
+        checkBtn.textContent = "✓";
+
+        checkBtn.onclick = () => {
+            const ans = input.value.toLowerCase().trim();
+            const validList = group.definitions?.[word] || [];
+            if (validList.some(v => ans.includes(v))) {
+                input.className = "correct";
+            } else {
+                input.className = "incorrect";
+            }
+        };
+
+        row.append(label, input, checkBtn);
+        container.appendChild(row);
+    });
+}
+</script>
+</body>
+</html>
